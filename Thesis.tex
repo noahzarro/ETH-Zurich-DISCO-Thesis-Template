@@ -289,14 +289,105 @@ The server checks if the signature is valid for the \texttt{public\_auth} key sa
 
 \subsubsection{Token Check}
 
-Each time a user performs a request that has to be authenticated, a token must be added. The token is sent in the \texttt{authorization} header field, with the syntax \texttt{Bearer: <token>}.
+Each time a user performs a request that has to be authenticated, a token must be added. The token is sent in the \texttt{authorization} header field, with the syntax \texttt{Bearer: <token>}. The server checks the validity of the signature, and if the token is not expired.
 
 \subsection{Data Structure}
 
-\subsection{Group Keys}
+In the current state of the project, the user data is stored in two simple JSON files, \texttt{users.json} and \texttt{groups.json}. This makes it easier to debug. For scalability, a switch to a real database would be appropriate. Requests are handled sequentially, without threading, to prevent race conditions.
+
+\subsubsection{Users}
+
+The \texttt{users.json} file consists of a list of user objects, specified in Lst. \ref{lst:users}. The user type contains a unique user ID, the keys transmitted during the account generation, optional IDs for Telegram or Facebook (which was not implemented, but would be in the next version) and an array of sessions, that contains the keys for peer to peer communications. The session keys are encrypted with \texttt{private\_auth}.
+
+There are specific requests to populate the Telegram and Facebook fields. They are called as soon as the users logs into its Telegram account in the app.
+
+The session keys are explained in more detail in \todo{Add ref to session details}
+
+
+\begin{listing}[h!]
+\label{lst:users}
+\begin{minted}[frame=lines, linenos]{typescript}
+type Session = {
+    "peer": string,
+    "symmetric": string
+}
+
+type User = {
+    "uuid": string,
+    "public_auth": string,
+    "public_enc": string,
+    "private_enc": string,
+    "public_group": string,
+    "private_group": string,
+    "sessions": Session[],
+    "telegram"?: string,
+    "facebook"?: string
+};
+\end{minted}
+\caption{User objects, saved in \texttt{users.json}}
+\end{listing}
+
+\subsubsection{Groups}
+\label{sec:group_keys}
+
+The \texttt{groups.json} contains an entry for each group, that specifies its ID, and the platform the group was created in (e.g. Telegram). This entry also contains a list of \texttt{GroupPosts}, as described in Lst. \ref{lst:groups}. A group post are created each time a new symmetric key is generated for this group. The symmetric key is then encrypted for each group member, and the resulting set is saved in the \texttt{group} field of the \texttt{GroupPost}. This process is explained in more detail in Section \todo{Add ref to group key generation}
+
+\begin{listing}[h!]
+\label{lst:groups}
+\begin{minted}[frame=lines, linenos]{typescript}
+type GroupPost = {
+    "from": string,
+    "date": string
+    "keys": GroupKey[] // entry for each group member
+}
+
+type GroupKey = {
+    "uuid": string,
+    "key": string // encrypted with user uuid's public_group key
+}
+\end{minted}
+\caption{Group objects, saved in \texttt{groups.json}}
+\end{listing}
 
 \section{App}
-asdfasdfasdfasdf
+
+The app was implemented with Ionic, using the Angular and Cordova framework \cite{Ionic}. It is a framework that allows the developer to compile a website to an app. Therefore, it is easy to develop cross-platform apps.  
+
+\subsection{Structure}
+
+The app is structured in three layers. The first layer, which is represented by the \texttt{KeyServerService}, handles the communication with the key server, and provides an interface to access the various keys. The second layer is represented by the \texttt{MessageService} provides an interface to encrypt messages. It uses the \texttt{KeyServerService} to get access to keys. The third layer handles communication with the APIs of the underlying cloud messengers. It provides an abstract base class (\texttt{MessengerService}), from which classes that implement the communication to specific messengers can inherit. Finally, there is also a visual part, that displays the messages received from the \texttt{MessengerService}. It is visualized in Fig. \ref{fig:layers}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.8\columnwidth]{figures/layers.png}
+    \caption{App Structure}
+    \label{fig:layers}
+\end{figure}
+
+\subsection{Visual Part}
+
+\todo{add screenshot}
+
+\subsection{Peer to Peer}
+
+Peer to peer messages are encrypted with a symmetric key, that is acquired through a Diffie-Hellman key agreement. This is implemented using the \texttt{TweetNaCl} library, a TypeScript implementation of the library Threema uses for its peer to peer chats \cite{Threema, TweetNaCl}. The library handles both key agreement and symmetric encryption.
+
+The symmetric keys are acquired in the following way: First, it is checked if a key is already cached in the app, if not, the key server is checked for a symmetric key for this peer. If it is still no successful, the key server is queried for the \texttt{public\_enc} key of the peer. If it is present, a symmetric key is generated, using the \texttt{public\_enc} key of the peer and the \texttt{private\_enc} key of the user in question. The resulting symmetric key is then pushed to the key server. If the \texttt{public\_enc} key of the peer was not present on the server, it means that this peer does not use Athena yet, and the communication is continued in an unencrypted way.
+
+\subsection{Groups}
+
+Group messages are encrypted using a symmetric key, that is generated by one group member, and distributed to the others via the key server. For the message encryption, also the \texttt{TweetNaCl} library is used. In the current state of the app, only static groups are possible, which means that the constellation of members does not change. A system to modify group constellation is proposed in Section \todo{ref to future work}
+
+
+
+To acquire the symmetric key, first the apps cache is checked. If unsuccessful, the key server is queried. If the server does not contain a valid symmetric key for this group, a new one is created and posted in the following way:
+
+The app first generates a random symmetric key. To make it accessible to all members of the group, but only to them, the key has to be encrypted and posted to the key server. Since the group members do not possess a shared key yet, the key has to be encrypted for each member individually. To achieve this, the \texttt{public\_group} key of each member is used. This results in a list of \texttt{GroupKey} objects, see Section \ref{sec:group_keys}. This list is then posted to the key server. In the server, this data structure is called a \texttt{GroupPost}. However, if the key server would just provide a single slot for such a \texttt{GroupPost} per group, a malicious third party could just send random garbage to the server and fill this slot. This is possible, because the key server cannot know who is in which group, because it does not have access to the database of the underlying cloud messengers. Therefore, the key server cannot distinguish between a real group member and a user that is just pretending to be a member. To solve this issue, the key server maintains a list of \texttt{GroupPost} per group.
+
+Users will always fetch the latest \texttt{GroupPost} first, and since the \texttt{GroupPost} object contains a field with the user ID of the poster, which is set by the key server, the users can easily detect if the \texttt{GroupPost} was posted by a user that is not a member of the group in question. If the post was from a malicious user, users can go through the list of \texttt{GroupPosts} chronologically until a valid post is found.
+
+If a valid post was found, the user can go through the list of \texttt{GroupKeys}, until the entry for the user in question was found. The user can then decrypt the symmetric group key with its \texttt{private\_group} key.
+
 \chapter{Future Work}
 \label{sec:future_work}
 
