@@ -40,7 +40,7 @@ ETH Zürich}
 
 \begin{abstract}
 
-In the time of rising public awareness for the privacy of messenger apps, people start using Telegram or Signal, instead of WhatsApp. But since Telegram does not offer end-to-end encryption, and Signal does not offer cloud functionality, there is no ideal choice that unifies both features. This paper aims to change this, and proposes a generic end-to-end encryption overlay for cloud based messengers such as Telegram, or even Facebook Messenger.
+In the time of rising public awareness for the privacy of messenger apps, people start using Telegram or Signal, instead of WhatsApp. But since Telegram does not offer end-to-end encryption, and Signal does not offer cloud functionality, there is no ideal choice that unifies both features. This paper aims to change this, and proposes a generic end-to-end encryption overlay for cloud-based messengers such as Telegram, or even Facebook Messenger.
 
 \end{abstract}
 
@@ -53,9 +53,9 @@ In the time of rising public awareness for the privacy of messenger apps, people
 \chapter{Motivation}
 On the 7th of January 2021, Elon Musk tweeted the following two words: "Use Signal!" \cite{Twitter}. It was a tweet with lots of consequences. First, it caused the stock prices of the totally unrelated company \emph{Signal Advance} to skyrocket. Secondly, and more relevant for this paper, it once again fueled the discussion about messengers. The tweet was a reaction to the announcement of WhatsApp's new terms and conditions, that once again weakened the privacy of its users. Soon after, WhatsApp's competitors were able to report rapid increases of their number of users.
 
-But there are immense differences among the other players in the market of messengers. It is worth a closer look, see Table \ref{table:messengers}. When switching from WhatsApp to another app, there are two reasonable options: Either Telegram, that offers cloud functionality, which means if one loses his phone, previously sent messages are preserved. But it does not offer end-to-end (E2E) encryption, except for unhandy peer to peer, device locked chats, which are not cloud based. However, it provides by far the most features, such as bots, custom clients, GIFs, etc. On the other hand, Signal is considered the most secure messenger of the four in question, since it provides forward secrecy, automatic \emph{healing} after one round trip if keys were leaked, groups members that are anonymous to the server, etc. Threema however does neither offer forward secrecy, nor cloud, and it is not free of charge, so there is no real unique selling point to it.
+But there are immense differences among the other players in the market of messengers. It is worth a closer look, see Table \ref{table:messengers}. When switching from WhatsApp to another app, there are two reasonable options: Either Telegram, that offers cloud functionality, which means if one loses his phone, previously sent messages are preserved. But it does not offer end-to-end (E2E) encryption, except for unhandy peer to peer, device locked chats, which are not cloud-based. However, it provides by far the most features, such as bots, custom clients, GIFs, etc. On the other hand, Signal is considered the most secure messenger of the four in question, since it provides forward secrecy, automatic \emph{healing} after one round trip if keys were leaked, groups members that are anonymous to the server, etc. Threema however does neither offer forward secrecy, nor cloud, and it is not free of charge, so there is no real unique selling point to it.
 
-But if one wants to have a cloud-based messenger that is also E2E encrypted, there is currently no option. This thesis aims to solve this problem, by presenting an app that provides both features. But since there are already that many messengers, there is no need to develop a new messenger from scratch. Therefore, an app is presented that acts as a client for multiple existing cloud-based messengers services and adds an E2E encryption layer to them. For now, the client only supports Telegram, but additional messengers, like Facebook, could be easily added.
+But if one wants to have a cloud-based messenger that is also E2E-encrypted, there is currently no option. This thesis aims to solve this problem, by presenting an app that provides both features. But since there are already that many messengers, there is no need to develop a new messenger from scratch. Therefore, an app is presented that acts as a client for multiple existing cloud-based messengers services and adds an E2E-encryption layer to them. For now, the client only supports Telegram, but additional messengers, like Facebook, could be easily added.
 
 
 \begin{table}[h!]
@@ -89,7 +89,7 @@ But if one wants to have a cloud-based messenger that is also E2E encrypted, the
 \chapter{Protocol}
 
 \section{Overview}
-The goal of the system is to provide an E2E-encryption overlay for a generic cloud based messenger, like Telegram or Facebook Messenger. There are several desired properties the overlay should have.
+The goal of the system is to provide an E2E-encryption overlay for a generic cloud-based messenger, like Telegram or Facebook Messenger. There are several desired properties the overlay should have.
 
 \begin{enumerate}
   \item A user should be able to log in from different devices with the same account and see all previously sent messages. 
@@ -97,11 +97,11 @@ The goal of the system is to provide an E2E-encryption overlay for a generic clo
   \item Peer to peer chats and group chats should be E2E-encrypted.
 \end{enumerate}
 
-In the following, the details of the concept are elaborated. First, it is explained how the cloud feature is achieved, in the next part, the basic peer to peer encryption is introduced, and the final part covers the encryption of group chats.
+In the following, the details of the concept are elaborated. First, it is explained how the cloud feature is achieved. In the next part, the basic peer to peer encryption is introduced, and the final part covers the encryption of group chats.
 
 \section{Cloud}
 
-Since an existing, cloud-based messenger should be used, all messages must be saved on its server. In the implementation, Telegram was used as a base messenger. Therefore, the protocol needs a custom client, that can encrypt and decrypt messages and exchange them with the server. So far it resembles a generic end-to-end encrypted messenger, as there are many on the market, like WhatsApp, Signal and Threema. But since the underlying messenger is cloud based, the client should be able to log in from multiple devices and see the same messages. This is the main problem of this thesis, and the two most promising solutions are elaborated in the following.
+Since an existing, cloud-based messenger should be used, all messages must be saved on its server. In the implementation, Telegram was used as a base messenger. Therefore, the protocol needs a custom client, that can encrypt and decrypt messages and exchange them with the server. So far it resembles a generic end-to-end encrypted messenger, as there are many on the market, like WhatsApp, Signal and Threema. But since the underlying messenger is cloud-based, the client should be able to log in from multiple devices and see the same messages. This is the main problem of this thesis, and the two most promising solutions are elaborated in the following.
 
 \subsection{Mulitple Keys}
 
@@ -113,7 +113,7 @@ The other approach is that once an account is created, a unique key is generated
 
 \subsection{Keyserver}
 
-When shared keys are used, the problem arises of how they are distributed. This can be solved by storing them in a key server. Naturally, the stored keys should not be accessible by the key server, otherwise the user would just have to trust the key server instead of Telegram. Therefore, the stored keys are encrypted by a single symmetric master key, that has to be transferred manually between devices, and is only stored locally on the devices of the user. Theoretically, user authentication against the key server could be left out, because the encrypted keys are no use to anyone without the symmetric master key. But to add redundancy, the user has to authenticate itself to the server, using an asymmetric authentication key pair. This second key also has to be transferred manually between devices.
+When shared keys are used, the problem arises of how they are distributed. This can be solved by storing them in a key server, see Fig. \ref{fig:structure}. Naturally, the stored keys should not be accessible by the key server, otherwise the user would just have to trust the key server instead of Telegram. Therefore, the stored keys are encrypted by a single symmetric master key, that has to be transferred manually between devices, and is only stored locally on the devices of the user. Theoretically, user authentication against the key server could be left out, because the encrypted keys are no use to anyone without the symmetric master key. But to add redundancy, the user has to authenticate itself to the server, using an asymmetric authentication key pair. This second key also has to be transferred manually between devices.
 
 
 \begin{figure}[h!]
@@ -163,7 +163,7 @@ In a blog post from 2014 Signal states that their group encryption also implemen
 In their white paper, WhatsApp describes a server side fan out system, where a group member first generates a random symmetric key, and sends it in a normal peer to peer chat to the other group members. The following messages are then encrypted with the symmetric key and sent to the server, which forwards it to each group member \cite{Whatsapp}. The symmetric key can then be recursively hashed, which means, after a key is used, a hash of the key is calculated and used as the new key. This system is called ratcheting. It is also used in the peer to peer chats in the Signal protocol and provides forward secrecy. Additionally, the messages are signed with an asymmetric key, to provide authenticity. It has to be mentioned, even though WhatsApp generally state that they use the Signal protocol for encryption, it is only used for peer to peer chats and calls, but not for group chats \cite{Newbedev}.
 
 \subsection{Proposition}
-On the base of the above protocols, a new one was proposed, which is optimized for the use as an overlay to a cloud based messenger.
+On the base of the above protocols, a new one was proposed, which is optimized for the use as an overlay to a cloud-based messenger.
 
 \subsubsection{Client Side Fan Out}
 \label{sec:server_side_fan_out}
@@ -180,7 +180,7 @@ With this approach, two problems arise. First, the symmetric key must be distrib
 
 To solve the first problem, two solutions are proposed. Either a new key is encrypted with each peer to peer symmetric key, as the messages in the above proposal \ref{sec:server_side_fan_out}, and all encrypted keys are concatenated and sent into the group chat. This solution was discarded, because it would violate the separation of messages in the Telegram cloud and keys on the key server. The second and finally chosen solution, is to publish the set of individually encrypted keys on the key server. The key server holds a list for each group, where anyone who can authenticate itself, can append a new set of encrypted keys, together with the user ID of the poster. Since the server has no access to Telegrams group structure, it cannot check who is in which group. Therefore, it is the client's obligation to check if the latest key was really added by a group member. If not, it just fetches the second-latest key.
 
-The problem of key renegotiation on joining or leaving was not completely solved yet due to time constraints, but it is discussed in the chapter Future Work \ref{sec:future_work}.
+The problem of key renegotiation on joining or leaving was not completely solved yet due to time constraints, but it is discussed in detail in the chapter Future Work \ref{sec:future_work}.
 
 
 \chapter{Implementation}
@@ -209,7 +209,7 @@ Algorithm: ES512
 Usage: To authenticate to the key server
 
 \noindent
-Storage: Public part on the server, private party in the app
+Storage: Public part on the server, private part in the app
 
 \subsubsection{Key Encryption Key}
 
@@ -297,7 +297,7 @@ The \texttt{users.json} file consists of a list of user objects, specified in Ls
 
 There are specific requests to populate the \texttt{telegram} and \texttt{facebook} fields. They are called as soon as the users links an underlying messenger to its account.
 
-The session keys are explained in more detail in Section \label{sec:p2p_implementation}.
+The session keys are explained in more detail in Section \ref{sec:p2p_implementation}.
 
 
 \begin{listing}[h!]
@@ -466,7 +466,7 @@ In the current implementation, peer to peer symmetric keys and group symmetric k
 
 \chapter{Conclusion}
 
-The goal of this work was to design and implement a client that adds end-to-end encryption to a generic cloud based messenger. A large part of the work consisted in analyzing the existing messengers and cherry-picking their best solutions.
+The goal of this work was to design and implement a client that adds end-to-end encryption to a generic cloud-based messenger. A large part of the work consisted in analyzing the existing messengers and cherry-picking their best solutions.
 
 The final version of the app reaches all its desired properties, however, there is still room for many additional features. What could not be achieved, is the addition of forward secrecy to the used protocol. This turned out to be incompatible with the cloud nature of the underlying messengers. Also, the underlying messengers are still able to collect metadata, since even tough they cannot decrypt messages anymore, they can still observe who is communicating with whom. 
 
