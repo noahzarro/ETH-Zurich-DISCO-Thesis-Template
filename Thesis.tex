@@ -3,17 +3,13 @@
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{minted}
-\usepackage{xcolor}
-
-\definecolor{LightGray}{gray}{0.9}
-
-
+\usepackage{subcaption}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % DOCUMENT METADATA
 
 \thesistype{Semester Thesis} % Master's Thesis, Bachelor's Thesis, Semester Thesis, Group Project
-\title{Thesis Title}
+\title{End to End Encryption in a Cloud-Based Messenger}
 
 \author{Noah Zarro}
 \email{zarron@ethz.ch}
@@ -42,12 +38,9 @@ ETH Zürich}
 
 \cleardoublepage
 
-\begin{acknowledgements}
-
-\end{acknowledgements}
-
-
 \begin{abstract}
+
+In the time of rising public awareness for the privacy of messenger apps, people start using Telegram or Signal, instead of WhatsApp. But since Telegram does not offer end-to-end encryption, and Signal does not offer cloud functionality, there is no ideal choice that unifies both features. This paper aims to change this, and proposes a generic end-to-end encryption overlay for cloud based messengers such as Telegram, or even Facebook Messenger.
 
 \end{abstract}
 
@@ -58,11 +51,11 @@ ETH Zürich}
 % Start writing here
 
 \chapter{Motivation}
-On the 7th of January this year, Elon Musk tweeted the following two words: "Use Signal!" \cite{Twitter}. It was a tweet with lots of consequences. First, it caused the stock prices of the totally unrelated company \emph{Signal Advance} to skyrocket. Secondly, and more relevant for this paper, it once again fueled the discussion about personal messengers. The tweet was a reaction to the announcement of WhatsApp's new terms and conditions, that once again weakened the privacy of its users. Soon after, WhatsApp's competitors were able to report rapid increases of users.
+On the 7th of January 2021, Elon Musk tweeted the following two words: "Use Signal!" \cite{Twitter}. It was a tweet with lots of consequences. First, it caused the stock prices of the totally unrelated company \emph{Signal Advance} to skyrocket. Secondly, and more relevant for this paper, it once again fueled the discussion about messengers. The tweet was a reaction to the announcement of WhatsApp's new terms and conditions, that once again weakened the privacy of its users. Soon after, WhatsApp's competitors were able to report rapid increases of their number of users.
 
-But there are immense differences among the other players in the market of personal messengers. It is worth a closer look, see table \ref{table:messengers}. When switching from WhatsApp to another app, there are two reasonable options: Either Telegram, that convinces with its cloud, which means if one loses his phone, previously sent messages are preserved. But it does not offer E2E-Encryption, except for unhandy peer to peer, device locked chats, which are not cloud based. However, it provides by far the most features, such as bots, custom clients, GIFs, etc. On the other hand, Signal is considered the most secure messenger of the four in question, since it provides forward secrecy, automatic \emph{healing} after one round trip if keys were leaked, groups members that are anonymous to the server, etc. Threema however does neither offer forward secrecy, nor cloud, and it is not free of charge, so there is no real unique selling point to it.
+But there are immense differences among the other players in the market of messengers. It is worth a closer look, see Table \ref{table:messengers}. When switching from WhatsApp to another app, there are two reasonable options: Either Telegram, that offers cloud functionality, which means if one loses his phone, previously sent messages are preserved. But it does not offer end-to-end (E2E) encryption, except for unhandy peer to peer, device locked chats, which are not cloud based. However, it provides by far the most features, such as bots, custom clients, GIFs, etc. On the other hand, Signal is considered the most secure messenger of the four in question, since it provides forward secrecy, automatic \emph{healing} after one round trip if keys were leaked, groups members that are anonymous to the server, etc. Threema however does neither offer forward secrecy, nor cloud, and it is not free of charge, so there is no real unique selling point to it.
 
-But if one wants to have a cloud-based messenger that is also \REMARK{shall abbreviations be used?} E2E-encrypted, there is currently no option. This thesis aims to solve this problem, by presenting an app that provides both features. But since there are already that many messengers, an app is presented, that acts as a client for multiple, not E2E encrypted, but cloud-based messenger services, and adds an encryption layer to them. For a start, the client does support just Telegram, but additional messengers, like Facebook, could be added easily.
+But if one wants to have a cloud-based messenger that is also E2E encrypted, there is currently no option. This thesis aims to solve this problem, by presenting an app that provides both features. But since there are already that many messengers, there is no need to develop a new messenger from scratch. Therefore, an app is presented that acts as a client for multiple existing cloud-based messengers services and adds an E2E encryption layer to them. For now, the client only supports Telegram, but additional messengers, like Facebook, could be easily added.
 
 
 \begin{table}[h!]
@@ -77,9 +70,9 @@ But if one wants to have a cloud-based messenger that is also \REMARK{shall abbr
  \hline\hline
  Users (M) & 2'000 & 500 & 10 & 40 \\ 
  \hline
- E2E-Encryption & claimed & no & yes & yes \\
+ E2E-Encryption & claimed\footnotemark & no & yes & yes \\
  \hline
- Forward Secrecy & claimed & no & no & yes \\
+ Forward Secrecy & claimed\footnotemark[\value{footnote}] & no & no & yes \\
  \hline
  Cloud & backup & yes & no & no \\
  \hline
@@ -87,15 +80,17 @@ But if one wants to have a cloud-based messenger that is also \REMARK{shall abbr
  \hline
 \end{tabular}
 \end{center}
-\caption{Sources: \cite{Business, Statistia}}
+\caption{Comparison of Messengers, numbers taken from \cite{Business, Statistia}}
 \label{table:messengers}
 \end{table}
 
+\footnotetext{WhatsApp is not open source, so it cannot be checked}
 
 \chapter{Protocol}
 
 \section{Overview}
-The goal of the concept is to provide an E2E-encryption overlay for a generic cloud based messenger, like Telegram or Facebook Messenger. There are several desired properties:
+The goal of the system is to provide an E2E-encryption overlay for a generic cloud based messenger, like Telegram or Facebook Messenger. There are several desired properties the overlay should have.
+
 \begin{enumerate}
   \item A user should be able to log in from different devices with the same account and see all previously sent messages. 
   \item The cloud infrastructure of the underlying messenger should be used for messages.
@@ -106,7 +101,7 @@ In the following, the details of the concept are elaborated. First, it is explai
 
 \section{Cloud}
 
-Since an existing, cloud-based messenger should be used, all messages must be saved on its server. In the implementation, Telegram was used as a base messenger. Therefore, the protocol needs a custom client, that can encrypt and decrypt messages and exchange them with the server. So far it resembles a generic end-to-end encrypted messenger, as there are many on the market, like WhatsApp, Signal and Threema. But since the underlying messenger is cloud based, the client should be able to log in from multiple devices and see the same messages. There are two main ways to solve this problem.
+Since an existing, cloud-based messenger should be used, all messages must be saved on its server. In the implementation, Telegram was used as a base messenger. Therefore, the protocol needs a custom client, that can encrypt and decrypt messages and exchange them with the server. So far it resembles a generic end-to-end encrypted messenger, as there are many on the market, like WhatsApp, Signal and Threema. But since the underlying messenger is cloud based, the client should be able to log in from multiple devices and see the same messages. This is the main problem of this thesis, and the two most promising solutions are elaborated in the following.
 
 \subsection{Mulitple Keys}
 
@@ -114,7 +109,7 @@ One approach, which Signal followed in the Sesame protocol \cite{Sesame}, is to 
 
 \subsection{Shared Key}
 
-The other approach is that once an account is created, a unique key is generated, which is shared across the devices. The advantage of this approach is that devices can drop in and out at will, and can always decrypt all messages. The disadvantage is that forward security is no longer guaranteed. This comes from the fact that any message sent in the past must be decryptable by a newly added device in the future. This directly contradicts with the definition of forward secrecy. The topic gets further discussed in section \ref{sec:forward_secrecy}. Because this approach provides much more flexibility, and also uses less space on the server, it was chosen for the protocol.
+The other approach is that once an account is created, a unique key is generated, which is shared across the devices. The advantage of this approach is that devices can drop in and out at will, and can always decrypt all messages. The disadvantage is that forward security is no longer guaranteed. This comes from the fact that any message sent in the past must be decryptable by a newly added device in the future. This directly contradicts with the definition of forward secrecy. The topic gets further discussed in Section \ref{sec:forward_secrecy}. Because this approach provides much more flexibility, and also uses less space on the server, it was chosen for the protocol.
 
 \subsection{Keyserver}
 
@@ -132,7 +127,7 @@ When shared keys are used, the problem arises of how they are distributed. This 
 
 
 \section{Peer to Peer}
-To encrypt a single message, a static symmetric key is used, that is known to both peers. The message is encrypted with the \emph{XSalsa20} algorithm, as used by Threema \cite{Threema}. The key is acquired through a Diffie-Hellman key exchange, also as in the Threema protocol, see fig \ref{fig:peer_encryption}.
+To encrypt a single message, a static symmetric key is used, that is known to both peers. The message is encrypted with the \emph{XSalsa20} algorithm, as used by Threema \cite{Threema}. The key is acquired through a Diffie-Hellman key exchange, also as in the Threema protocol, see Fig \ref{fig:peer_encryption}.
 
 \begin{figure}[h!]
     \centering
@@ -144,7 +139,7 @@ To encrypt a single message, a static symmetric key is used, that is known to bo
 \subsection{Forward Secrecy}
 \label{sec:forward_secrecy}
 
-Currently, the most popular messengers have different approaches concerning forward secrecy. Signal and WhatsApp \REMARK{Are brackets ok?} (which uses the Signal protocol), have a very sophisticated and utterly clever system, where after every message round trip, the symmetric encryption key is changed in a way, that if this specific version of the key is leaked, only the messages from the current round trip can be decrypted, but not past nor future messages. This is achieved by recursively hashing the key after every round trip, and combining it with a new Diffie-Hellman key exchange after every round \cite{DoubleRatchet}.
+Currently, the most popular messengers have different approaches concerning forward secrecy. Signal and WhatsApp (which uses the Signal protocol), have a very sophisticated and utterly clever system, where after every message round trip, the symmetric encryption key is changed in a way, that if this specific version of the key is leaked, only the messages from the current round trip can be decrypted, but not past nor future messages. This is achieved by recursively hashing the key after every round trip, and combining it with a new Diffie-Hellman key exchange after every round \cite{DoubleRatchet}.
 
 In their device bound secret chats, Telegram does a re-keying after each 100 messages, and Threema refrains from implementing forward secrecy at all \cite{Threema}.
 
@@ -152,7 +147,7 @@ For the presented protocol, however, forward secrecy is not possible by design. 
 
 \subsection{Key Exchange}
 
-For a Diffie-Hellman key exchange, classically two parties execute a synchronous protocol. But since in the context of mobile messaging this is not feasible, the protocol has to be made asynchronously. The proposed way is the de facto standard among modern E2E-encrypted messengers. First, both parties publish their public key part on an openly accessible server, here the key server is used. If party A wants to negotiate a key, it fetches the public key part of party B from the server, constructs the shared secret, and can already send the first messages. As soon as party B gets online, it can fetch party A's public key and also construct the same shared secret. The newly constructed symmetric keys are then saved on the key server. They could also easily be recreated each time a new device is added, but this way, as soon as the symmetric key was negotiated, user A is independent of user B. Even if user B deletes its account, user A can still decrypt the old messages.
+For a Diffie-Hellman key exchange, two parties execute a synchronous protocol. But since in the context of mobile messaging this is not feasible, the protocol has to be made asynchronously. The proposed way is the de facto standard among modern E2E-encrypted messengers. First, both parties publish their public key part on an openly accessible server, here the key server is used. If party A wants to negotiate a key, it fetches the public key part of party B from the server, constructs the shared secret, and can already send the first messages. As soon as party B gets online, it can fetch party A's public key and also construct the same shared secret. The newly constructed symmetric keys are then saved on the key server. They could also easily be recreated each time a new device is added, but this way, as soon as the symmetric key was negotiated, user A is independent of user B. Even if user B deletes its account, user A can still decrypt the old messages.
 
 \section{Groups}
 
@@ -164,7 +159,7 @@ Threema uses \emph{client side fan out}, a straight forward approach, where a gr
 
 \subsection{Signal/Whatsapp}
 
-It is not perfectly clear, how Signal and WhatsApp handle their group messages. In a blog post from 2014 Signal states that their group encryption also implements client side fan out, as Threema does \cite{SignalGroupsOld}. On the other hand, WhatsApp claims to use the Signal protocol, and in their white paper they describe a server side fan out system, where a group member first generates a random symmetric key, and sends it in a normal peer to peer chat to the other group members. The following messages are then encrypted with the symmetric key and sent to the server, which forwards it to each group member\cite{Whatsapp}. The symmetric key can then be ratched (hashed), as in the peer to peer communication, to provide forward secrecy. Additionally, the messages are signed with an asymmetric key, to provide authenticity. However, Signal does not specify any changes to their group protocol, and the server side fan out approach does not go well with the philosophy of Signal, whose goal it is to know as little as possible about the users, including group constellations \cite{SignalGroupsNew}. Therefore, it is possible that WhatsApp only uses the Signal protocol for the peer to peer messages, and developed their own protocol for group chats.
+In a blog post from 2014 Signal states that their group encryption also implements client side fan out, as Threema does \cite{SignalGroupsOld}. In their white paper, WhatsApp describe a server side fan out system, where a group member first generates a random symmetric key, and sends it in a normal peer to peer chat to the other group members. The following messages are then encrypted with the symmetric key and sent to the server, which forwards it to each group member \cite{Whatsapp}. The symmetric key can then be ratched (hashed), as in the peer to peer communication, to provide forward secrecy. Additionally, the messages are signed with an asymmetric key, to provide authenticity. However, Signal does not specify any changes to their group protocol, and the server side fan out approach does not go well with the philosophy of Signal, whose goal it is to know as little as possible about the users, including group constellations \cite{SignalGroupsNew}. Therefore, it is possible that WhatsApp only uses the Signal protocol for the peer to peer messages, and developed their own protocol for group chats.
 
 \subsection{Proposition}
 On the base of the above protocols, a new one was proposed, which is optimized for the use as an overlay to a cloud based messenger.
@@ -333,7 +328,6 @@ type User = {
 The \texttt{groups.json} contains an entry for each group, that specifies its ID, and the platform the group was created in (e.g. Telegram). This entry also contains a list of \texttt{GroupPosts}, as described in Lst. \ref{lst:groups}. A group post are created each time a new symmetric key is generated for this group. The symmetric key is then encrypted for each group member, and the resulting set is saved in the \texttt{group} field of the \texttt{GroupPost}. This process is explained in more detail in Section \todo{Add ref to group key generation}
 
 \begin{listing}[h!]
-\label{lst:groups}
 \begin{minted}[frame=lines, linenos]{typescript}
 type GroupPost = {
     "from": string,
@@ -347,6 +341,7 @@ type GroupKey = {
 }
 \end{minted}
 \caption{Group objects, saved in \texttt{groups.json}}
+\label{lst:groups}
 \end{listing}
 
 \section{App}
@@ -366,13 +361,44 @@ The app is structured in three layers. The first layer, which is represented by 
 
 \subsection{Visual Part}
 
-\todo{add screenshot}
+In a chat, encrypted messages are displayed in blue, with a lock icon on the side. Unencrypted messages can still be read, but they are greyed out, see Figure \ref{fig:screenshots}. If an official client is used in parallel, encrypted messages are just displayed in their base64 encoded form, see Figure \ref{fig:chat_plain}. It also provides a list of chats, with their latest message encrypted and displayed, see Figure \ref{fig:chats}.
+
+\begin{figure}[h]
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=.8\linewidth]{figures/chat_martin.png}
+  \caption{Martin's Phone}
+  \label{fig:chat_martin}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=.8\linewidth]{figures/chat_noah.png}
+  \caption{Noah's Phone}
+  \label{fig:chat_noah}
+\end{subfigure}
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=.8\linewidth]{figures/chat_plain.png}
+  \caption{Classic Client}
+  \label{fig:chat_plain}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=.8\linewidth]{figures/chats.png}
+  \caption{Chat List}
+  \label{fig:chats}
+\end{subfigure}
+\caption{Screenshots}
+\label{fig:screenshots}
+\end{figure}
 
 \subsection{Peer to Peer}
 
 Peer to peer messages are encrypted with a symmetric key, that is acquired through a Diffie-Hellman key agreement. This is implemented using the \texttt{TweetNaCl} library, a TypeScript implementation of the library Threema uses for its peer to peer chats \cite{Threema, TweetNaCl}. The library handles both key agreement and symmetric encryption.
 
 The symmetric keys are acquired in the following way: First, it is checked if a key is already cached in the app, if not, the key server is checked for a symmetric key for this peer. If it is still no successful, the key server is queried for the \texttt{public\_enc} key of the peer. If it is present, a symmetric key is generated, using the \texttt{public\_enc} key of the peer and the \texttt{private\_enc} key of the user in question. The resulting symmetric key is then pushed to the key server. If the \texttt{public\_enc} key of the peer was not present on the server, it means that this peer does not use Athena yet, and the communication is continued in an unencrypted way.
+
+If in the future more than one underlying cloud messenger can be linked to the app (e.g. Telegram and Facebook) and user A and user B both linked their Telegram and Facebook accounts to their Athena account, they would use the same symmetric key for peer to peer communication on both platforms. This comes from the decision that the \texttt{enc} key that is used to do Diffie-Hellman key agreements is unique per Athena account. It does however not pose a threat, since from a cryptographic view point, it is only a UI specific difference in which chat window the messages are shown. In the core, it is only relevant that the messages are exchanged by user A and B.
 
 \subsection{Groups}
 
@@ -391,9 +417,53 @@ If a valid post was found, the user can go through the list of \texttt{GroupKeys
 \chapter{Future Work}
 \label{sec:future_work}
 
+\section{Generic Additions}
+
+Clearly, in the scope of one semester it is not possible to design a messenger client whose UI can compete with the existing messengers, that are developed by a whole team over years. Therefore, there could be a lot of time invested to improve the clients UI and additional features, as \emph{mark as read} and so on.
+
+Additionally, more underlying messengers could be added. Facebook would be a good option, because there already exist unofficial APIs.
+
+Furthermore, the login system could be improved, currently it only consists of a pop-up that asks for credentials that have to be entered by hand.
+
 \section{In Platform Authentication}
 
+In the current implementation, anybody can make an Athena account in the app, which is fine. However, anybody can also link an arbitrary Telegram account to its account, just by posting its Telegram ID to the key server, which are publically known. Like this, a malicious user can relatively easy impersonate another user. This problem could be solved by implementing a Telegram bot (or a service account in Facebook). If a user wants to link its Telegram account to the server, the server provides a challenge, i.e. a nonce, which has to be sent to this Telegram bot by the user in question. The bot can then forward the sender Telegram ID together with the nonce to the key server.
+
 \section{Group Modifications}
+
+In the current implementation, groups are static, which means that no members can be added or removed. Also, there is no system for group members to accuse malicious members.
+
+\subsection{Malicious Members}
+
+Right now, it is possible for anybody to publish a new \texttt{GroupPost} to the key server, containing a new symmetric key. If the user who published the \texttt{GroupPost} was not in the group, it is just ignored. However, it is also possible for a group member to be malicious. While encrypting the symmetric key for each member, a malicious user could just encrypt random garbage for a specific member. This member would then de facto be excluded from the group, until a new key would be published. However, the affected user can never be completely sure if the poster of the \texttt{GroupPost} was really malicious, or if everybody else in the group is just using the classical unencrypted Telegram client at the moment, and therefore these unencrypted messages cannot be decrypted anyway.
+
+To resolve this uncertainty, an additional check could be implemented. To the \texttt{GroupPost} an additional field could be added. This would contain a well known text, for example "How do you turn this on?", that is encrypted with the symmetric key, promoted in this \texttt{GroupPost}. After decrypting their version of the symmetric key, the group members could check if they can decrypt the well known text with their version of the symmetric key. If not, they know for sure that the user who posted the \texttt{GroupPost} was malicious. In this case, the user could just post a new \texttt{GroupPost} with a real key. Additionally, a system could be implemented to prove to the other group members that the user in question is malicious. But for this, there is no solution sketch yet.
+
+\subsection{Member Changes}
+\label{sec:group_member_changes}
+For a fully functional messenger overlay, it should be possible to add or remove members to the group. This is no yet fully supported in the current implementation. If the group constellation changes, a new key has to be posted. To make messages encrypted with an old key still decryptable, it would make sense to assign an ID to each \texttt{GroupPost}, and append this ID to each message that is encrypted with this ID. Like this, posting new keys has no negative effects, except for an increased storage use on the server. Therefore, a member that newly joined the group could just post a new key. If a member leaves the group, the next user that wants to send a message would just post a new \texttt{GroupPost} first, to make it impossible for the former member to decrypt newly sent messages.
+
+\section{Efficiency}
+
+In the current implementation, only the most crucial optimizations were applied. There is still much room for optimizations.
+
+\subsection{Message Cacheing}
+
+Currently, each time the app is loaded, or a chat is opened, all contacts, messages and profile pictures are fetched again from the server. In a future version, this data could be cached on the disk, such that it would also be available for offline use. It could also be used to bypass a blank loading screen if the device is online.
+
+Furthermore, a messenger needs a system to periodically check for new messages to display them. Currently, all messages are refetched every second from the messaging server. Telegram would even offer a system to only query changed data, but for compatibility reasons with future messengers, the brute force method is chosen. But there would also be room for a better solution.
+
+\subsection{Key Chacheing}
+
+In the current implementation, peer to peer symmetric keys and group symmetric keys are fetched once at the start of the app, and then cached for further use in RAM. They could also be cached on disk for faster initial loading times.
+
+\chapter{Conclusion}
+
+The goal of this work was to design and implement a client that adds end-to-end encryption to a generic cloud based messenger. A large part of the work consisted in analyzing the existing messengers and cherry-picking their best solutions.
+
+The final version of the app reaches all its desired properties, however, there is still room for many additional features. What could not be achieved is the addition of forward secrecy to the used protocol. This turned out to be incompatible with the cloud nature of the underlying messenger.
+
+Finally, the presented client provides a good compromise between convenience and security. However, people that are reliant on a completely save messenger should switch to Signal. It is by far the best messenger in terms of privacy and security.
 
 % This displays the bibliography for all cited external documents. All references have to be defined in the file references.bib and can then be cited from within this document.
 \bibliographystyle{IEEEtran}
