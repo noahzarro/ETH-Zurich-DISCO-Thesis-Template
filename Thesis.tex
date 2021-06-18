@@ -139,7 +139,7 @@ To encrypt a single message, a static symmetric key is used, that is known to bo
 \subsection{Forward Secrecy}
 \label{sec:forward_secrecy}
 
-Currently, the most popular messengers have different approaches concerning forward secrecy. Signal and WhatsApp (which uses the Signal protocol), have a very sophisticated and utterly clever system, where after every message round trip, the symmetric encryption key is changed in a way, that if this specific version of the key is leaked, only the messages from the current round trip can be decrypted, but not past nor future messages. This is achieved by recursively hashing the key after every round trip, and combining it with a new Diffie-Hellman key exchange after every round \cite{DoubleRatchet}.
+Currently, the most popular messengers have different approaches concerning forward secrecy. Signal and WhatsApp (which uses the Signal protocol), have a very sophisticated and utterly clever system, where after every message round trip, the symmetric encryption key is changed in a way, that if this specific version of the key is leaked, only the messages from the current round trip can be decrypted, but not past nor future messages. This is achieved by recursively hashing the key after every round trip (Ratching), and combining it with a new Diffie-Hellman key exchange after every round \cite{DoubleRatchet}.
 
 In their device bound secret chats, Telegram does a re-keying after each 100 messages, and Threema refrains from implementing forward secrecy at all \cite{Threema}.
 
@@ -160,7 +160,7 @@ In a blog post from 2014 Signal states that their group encryption also implemen
 
 \subsection{Whatsapp}
 
-In their white paper, WhatsApp describes a server side fan out system, where a group member first generates a random symmetric key, and sends it in a normal peer to peer chat to the other group members. The following messages are then encrypted with the symmetric key and sent to the server, which forwards it to each group member \cite{Whatsapp}. The symmetric key can then be recursively hashed, which means, after a key is used, a hash of the key is calculated and used as the new key. This system is called ratcheting. It is also used in the peer to peer chats in the Signal protocol and provides forward secrecy. Additionally, the messages are signed with an asymmetric key, to provide authenticity. It has to be mentioned, even though WhatsApp generally state that they use the Signal protocol for encryption, it is only used for peer to peer chats and calls, but not for group chats \cite{Newbedev}.
+In their white paper, WhatsApp describes a \emph{server side fan out} system, where a group member first generates a random symmetric key, and sends it in a normal peer to peer chat to the other group members. The following messages are then encrypted with the symmetric key and sent to the server, which forwards it to each group member \cite{Whatsapp}. Key ratcheting is still possible with this approach. However, the new Diffie-Hellman key exchanges after each round trip are no longer possible, since there are more than two parties involved. Additionally, the messages are signed with an asymmetric key, to provide authenticity. It has to be mentioned, even though WhatsApp generally state that they use the Signal protocol for encryption, it is only used for peer to peer chats and calls, but not for group chats \cite{Newbedev}.
 
 \subsection{Proposition}
 On the base of the above protocols, a new one was proposed, which is optimized for the use as an overlay to a cloud-based messenger.
@@ -178,7 +178,7 @@ Another approach would be to use a single symmetric key for the group chat that 
 
 With this approach, two problems arise. First, the symmetric key must be distributed among the members, and secondly, the key must be changed if the group constellation changes.
 
-To solve the first problem, two solutions are proposed. Either a new key is encrypted with each peer to peer symmetric key, as the messages in the above proposal \ref{sec:server_side_fan_out}, and all encrypted keys are concatenated and sent into the group chat. This solution was discarded, because it would violate the separation of messages in the Telegram cloud and keys on the key server. The second and finally chosen solution, is to publish the set of individually encrypted keys on the key server. The key server holds a list for each group, where anyone who can authenticate itself, can append a new set of encrypted keys, together with the user ID of the poster. Since the server has no access to Telegrams group structure, it cannot check who is in which group. Therefore, it is the client's obligation to check if the latest key was really added by a group member. If not, it just fetches the second-latest key.
+To solve the first problem, two solutions are proposed. The first one would be to encrypt a key with each peer to peer symmetric key, and send all encrypted keys concatenated into the group chat as one single Telegram message. This solution was discarded, because it would violate the separation of messages in the Telegram cloud and keys on the key server. The second and finally chosen solution, is to publish the set of individually encrypted keys on the key server. The key server holds a list for each group, where anyone who can authenticate itself, can append a new set of encrypted keys, together with the user ID of the poster. Since the server has no access to Telegrams group structure, it cannot check who is in which group. Therefore, it is the client's obligation to check if the latest key was really added by a group member. If not, it just fetches the second-latest key.
 
 The problem of key renegotiation on joining or leaving was not completely solved yet due to time constraints, but it is discussed in detail in the chapter Future Work \ref{sec:future_work}.
 
@@ -196,7 +196,7 @@ The key server is implemented in TypeScript and runs on Node.js. This has the ad
 
 \label{sec:keys}
 
-Since many different keys are used in the protocol, first a short overview is presented, where the name, the purpose and the used algorithm of each key is specified. Variables containing only the public part of a key are prepended by a \texttt{public\_} prefix. Variables containing the whole key, including the private part, are tagged with a \texttt{private\_} prefix.
+Since many different keys are used in the protocol, first a short overview is presented, where the name, the purpose, the used algorithm of each key and its storage location is specified. Variables containing only the public part of a key are prepended by a \texttt{public\_} prefix. Variables containing the whole key, including the private part, are tagged with a \texttt{private\_} prefix.
 
 \subsubsection{Authorization Key}
 
